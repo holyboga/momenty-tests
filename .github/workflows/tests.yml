@@ -1,0 +1,46 @@
+# Прогон автотестов на каждый push. Приложение «Моменты» — приватный репозиторий,
+# поэтому его клонируем по токену из секретов (APP_REPO_TOKEN: fine-grained PAT с правом Contents: read).
+name: tests
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Клонируем приложение
+        uses: actions/checkout@v4
+        with:
+          repository: holyboga/present_on_wedding
+          token: ${{ secrets.APP_REPO_TOKEN }}
+          path: app
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Зависимости приложения
+        run: npm ci
+        working-directory: app
+
+      - name: Зависимости тестов и браузер
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Тесты
+        run: npm test
+        env:
+          CI: "true"
+          APP_DIR: ${{ github.workspace }}/app
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 14
